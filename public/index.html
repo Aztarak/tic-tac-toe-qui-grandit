@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Puissance Trois évolutif</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#eaf1ee;--grid:#b4c9c2;--ink:#17242b;--mute:#5b6d72;--card:#f8fbfa;--win:#ffe58a;--pl:42%;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a1e;--grid:#2b4048;--ink:#e6f0ee;--mute:#8ea5aa;--card:#16262c;--win:#5a4a12;--pl:66%}}
+*{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;justify-content:center}
+main{width:100%;max-width:600px;padding:20px 16px 32px}
+h1{font-size:clamp(26px,6vw,36px);font-weight:800;margin:0 0 4px;letter-spacing:-.02em}
+.sub,.rule{color:var(--mute);line-height:1.45}.sub{margin:0 0 18px}.rule{margin:0 0 10px}
+.card{background:var(--card);border:2px solid var(--grid);border-radius:14px;padding:16px}
+label{display:block;font-weight:600;margin:0 0 6px}
+input[type=text]{width:100%;font:inherit;padding:10px 12px;border:2px solid var(--grid);border-radius:10px;background:var(--bg);color:var(--ink);margin-bottom:14px}
+input:focus-visible,button:focus-visible,.cell:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+button{font:inherit;font-weight:600;padding:10px 16px;border-radius:10px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--grid)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.players{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chip{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;border:2px solid var(--grid);border-radius:999px;background:var(--card)}
+.chip small{display:block;color:var(--mute);font-size:12px}
+.chip.on{border-color:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 28%,transparent)}
+.chip.out{opacity:.4}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--c);font-weight:800;overflow:hidden;background:var(--bg);flex:none}
+.av img{width:100%;height:100%;object-fit:cover}
+.status{font-size:20px;font-weight:600;min-height:30px;margin:6px 0 8px;line-height:1.3;color:var(--cur)}
+#tw{min-height:58px;margin:0 0 8px}
+#tw .t{display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:12px;background:var(--ink);color:var(--bg);font-weight:600;animation:drop .5s cubic-bezier(.3,1.6,.5,1)}
+#tw .e{font-size:34px;line-height:1}
+@keyframes drop{from{transform:translateY(-20px) scale(.8);opacity:0}}
+#board{display:grid;grid-template-columns:repeat(var(--n),1fr);width:100%;max-width:560px;margin:0 auto;aspect-ratio:1;border:3px solid var(--cur,var(--grid));border-radius:8px;overflow:hidden;background:var(--card);transition:border-color .3s}
+#board.shake{animation:shake .5s}
+@keyframes shake{20%{transform:translate(-8px,3px) rotate(-1deg)}40%{transform:translate(8px,-3px) rotate(1deg)}60%{transform:translate(-6px,2px)}80%{transform:translate(5px,-2px)}}
+.cell{all:unset;box-sizing:border-box;border:1px solid var(--grid);display:flex;align-items:center;justify-content:center;color:var(--c);font-weight:800;font-size:calc(min(92vw,540px)/var(--n)*.6);line-height:1;cursor:pointer;min-width:0;min-height:0;overflow:hidden}
+.cell img{width:82%;height:82%;object-fit:cover;border-radius:18%}
+.cell.win{background:var(--win)}
+.cell.can:hover{background:color-mix(in srgb,var(--cur) 14%,transparent)}
+.cell.new>*{animation:pop .22s ease-out}
+@keyframes pop{from{transform:scale(.3) rotate(-20deg)}}
+.cf{position:fixed;top:-40px;font-size:26px;pointer-events:none;animation:fall linear forwards;z-index:9}
+@keyframes fall{to{transform:translateY(115vh) rotate(540deg)}}
+@media (prefers-reduced-motion:reduce){.cell.new>*,#tw .t,#board.shake{animation:none}}
+.foot{margin-top:16px}.hidden{display:none}
+.opt{display:flex;gap:6px;align-items:center;color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Puissance Trois évolutif</h1>
+  <p class="sub">Autant de joueurs que tu veux. À chaque égalité, la grille grandit d'une case et il faut aligner un symbole de plus. Attention aux twists !</p>
+
+  <section id="lobby" class="card">
+    <label for="name">Ton pseudo</label>
+    <input type="text" id="name" maxlength="16" placeholder="Ex : Tarak" autocomplete="off">
+    <label for="code">Code de la salle</label>
+    <input type="text" id="code" maxlength="8" autocomplete="off">
+    <button id="join">Entrer dans la salle</button>
+    <p class="rule" style="margin:12px 0 0">Tous ceux qui entrent le même code rejoignent la partie. Aucun compte nécessaire.</p>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="row"><span>Salle <b id="room"></b></span><span><button class="ghost" id="mute" aria-label="Son">🔊</button> <button class="ghost" id="leave">Quitter</button></span></div>
+    <div class="players" id="players"></div>
+    <div class="row" id="mine" style="margin-bottom:8px"><button class="ghost" id="img">Importer mon image</button><button class="ghost hidden" id="noimg">Retirer mon image</button><input type="file" id="file" accept="image/*" class="hidden"></div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div id="tw"></div>
+    <p class="rule" id="rule"></p>
+    <div id="board" role="grid" aria-label="Plateau"></div>
+    <div class="foot row"><span class="rule" id="meta"></span><label class="opt"><input type="checkbox" id="twopt"> Twists</label><button id="again" class="hidden">Nouvelle partie</button></div>
+  </section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const SYM=['✕','◯','△','□','◇','★','☾','✚','♥','♣'];
+let ws=null,S=null,shown=null,me='',code='',IM={},inGame=false,mute=false,AC=null,note='';
+const store={get(k){try{return localStorage.getItem(k)||''}catch{return ''}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
+const pid=(()=>{try{let p=sessionStorage.getItem('pid');if(!p){p='p'+Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem('pid',p)}return p}catch{return 'p'+Math.random().toString(36).slice(2)}})();
+const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const col=i=>`hsl(${(i*67+210)%360} 70% var(--pl))`;
+const okImg=s=>typeof s==='string'&&/^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+\/=]+$/.test(s);
+const av=(p,i)=>`<span class="av" style="--c:${col(i)}">${okImg(p.img)?`<img src="${p.img}" alt="">`:esc(p.sym)}</span>`;
+const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
+
+function beep(f,d=.12,t='sine',w=0){if(mute)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain(),s=AC.currentTime+w;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.06,s);g.gain.exponentialRampToValueAtTime(.0001,s+d);o.connect(g);g.connect(AC.destination);o.start(s);o.stop(s+d)}catch{}}
+function confetti(){if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;const E=['🎉','✨','🏆','⭐','🎊'];for(let i=0;i<36;i++){const s=document.createElement('span');s.className='cf';s.textContent=E[i%5];s.style.left=Math.random()*100+'vw';s.style.animationDuration=(2+Math.random()*2)+'s';s.style.animationDelay=Math.random()*.6+'s';document.body.appendChild(s);setTimeout(()=>s.remove(),4800)}}
+function fx(p,s){
+  if(!p)return;
+  if(s.tw&&s.tw.at===s.moves&&(!p.tw||p.tw.n!==s.tw.n)){[300,220,380,180].forEach((f,j)=>beep(f,.16,'sawtooth',j*.09));const b=$('#board');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake')}
+  else if(s.moves!==p.moves)beep(480+s.turn*45,.1);
+  if(s.winner&&!p.winner){[523,659,784,1047].forEach((f,j)=>beep(f,.22,'triangle',j*.12));confetti()}
+  if(s.grown>p.grown)[392,494,587].forEach((f,j)=>beep(f,.14,'square',.4+j*.1));
+}
+
+function render(){
+  if(!S)return;
+  const pl=S.players,mi=pl.findIndex(p=>p.id===me),act=pl.filter(p=>!p.out).length,cur=pl[S.turn]||{name:''};
+  pl.forEach(p=>{p.img=IM[p.id]||''});
+  $('#game').style.setProperty('--cur',col(S.turn));
+  $('#room').textContent=code;
+  $('#players').innerHTML=pl.map((p,i)=>`<div class="chip${i===S.turn&&!S.winner&&!S.over?' on':''}${p.out?' out':''}" style="--c:${col(i)}">${av(p,i)}<span>${esc(p.name)}${i===mi?' (toi)':''}<small>${p.wins} victoire${p.wins>1?'s':''}</small></span></div>`).join('');
+  $('#noimg').classList.toggle('hidden',!(mi>=0&&okImg(pl[mi].img)));
+  let st='';
+  if(S.winner){const w=pl.find(p=>p.id===S.winner);st=`🏆 ${esc(w&&w.name)} gagne avec ${S.line.length} symboles alignés !`}
+  else if(S.over)st=`Égalité sur la grille maximale ${S.size}×${S.size}. Partie nulle.`;
+  else if(act<2)st='En attendant d’autres joueurs… partage le code de la salle.';
+  else if(mi<0)st=`Tu regardes. Au tour de ${esc(cur.name)}.`;
+  else if(mi===S.turn)st='À toi de jouer !';
+  else st=`Au tour de ${esc(cur.name)}…`;
+  $('#status').innerHTML=st;
+  $('#tw').innerHTML=(S.tw&&S.tw.at===S.moves)?`<div class="t"><span class="e">${S.tw.e}</span>${esc(S.tw.t)}</div>`:(S.note?`<div class="t"><span class="e">📈</span>${esc(S.note)}</div>`:'');
+  $('#rule').textContent=`Grille ${S.size}×${S.size} : aligne ${S.k} symboles pour gagner.`;
+  $('#meta').textContent=`Agrandissements : ${S.grown} · Sens ${S.dir>0?'↻':'↺'}`;
+  $('#twopt').checked=!!S.twists;
+  $('#again').classList.toggle('hidden',!(S.winner||S.over)||mi<0);
+  const b=$('#board');b.style.setProperty('--n',S.size);
+  const can=mi>=0&&S.turn===mi&&!S.winner&&!S.over&&act>1;
+  b.innerHTML=S.board.map((v,i)=>{
+    const pi=v?pl.findIndex(p=>p.id===v):-1,p=pl[pi];
+    const nw=v&&shown&&shown.size===S.size&&shown.board[i]!==v;
+    return `<button class="cell${S.line.includes(i)?' win':''}${!v&&can?' can':''}${nw?' new':''}" style="--c:${col(pi)}" data-i="${i}" aria-label="Case ${(i/S.size|0)+1}, ${i%S.size+1}${p?' : '+esc(p.name):''}">${p?(okImg(p.img)?`<img src="${p.img}" alt="">`:`<span>${esc(p.sym)}</span>`):''}</button>`}).join('');
+  fx(shown,S);shown=S;
+}
+
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+  ws.onopen=()=>send({t:'join',room:code,name:$('#name').value.trim(),pid});
+  ws.onmessage=e=>{
+    let m;try{m=JSON.parse(e.data)}catch{return}
+    if(m.t==='hello'){me=m.me;IM=m.imgs||{};const i=store.get('img');if(i&&!IM[me])send({t:'img',img:i});render()}
+    else if(m.t==='state'){S=m.s;render()}
+    else if(m.t==='img'){IM[m.id]=m.img;render()}
+  };
+  ws.onclose=()=>{if(inGame){$('#status').textContent='Connexion perdue… reconnexion.';setTimeout(()=>inGame&&connect(),1500)}};
+}
+function enter(){
+  code=($('#code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,''))||Math.random().toString(36).slice(2,6).toUpperCase();
+  store.set('name',$('#name').value.trim());
+  try{location.hash=code}catch{}
+  $('#lobby').classList.add('hidden');$('#game').classList.remove('hidden');
+  inGame=true;$('#status').textContent='Connexion…';connect();
+}
+function toThumb(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const im=new Image();im.onerror=rej;im.onload=()=>{const s=96,c=document.createElement('canvas');c.width=c.height=s;const m=Math.min(im.width,im.height);c.getContext('2d').drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,s,s);res(c.toDataURL('image/webp',.7))};im.src=fr.result};fr.readAsDataURL(file)})}
+const setImg=d=>{store.set('img',d);send({t:'img',img:d})};
+
+$('#board').addEventListener('click',e=>{const c=e.target.closest('.cell');if(c)send({t:'move',i:+c.dataset.i})});
+$('#again').addEventListener('click',()=>send({t:'again'}));
+$('#join').addEventListener('click',enter);
+$('#code').addEventListener('keydown',e=>{if(e.key==='Enter')enter()});
+$('#img').addEventListener('click',()=>$('#file').click());
+$('#file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{setImg(await toThumb(f))}catch{$('#status').textContent="Cette image n'a pas pu être lue."}});
+$('#noimg').addEventListener('click',()=>setImg(''));
+$('#twopt').addEventListener('change',e=>send({t:'tw',v:e.target.checked}));
+$('#mute').addEventListener('click',e=>{mute=!mute;e.target.textContent=mute?'🔇':'🔊'});
+$('#leave').addEventListener('click',()=>{inGame=false;if(ws)ws.close();S=null;shown=null;$('#game').classList.add('hidden');$('#lobby').classList.remove('hidden')});
+
+$('#name').value=store.get('name');
+let h='';try{h=decodeURIComponent(location.hash.slice(1))}catch{}
+$('#code').value=h||Math.random().toString(36).slice(2,6).toUpperCase();
+</script>
+</body>
+</html>
